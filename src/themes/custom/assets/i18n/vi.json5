@@ -1,0 +1,19 @@
+{
+  // DSpace default: "All of DSpace"
+  "menu.section.browse_global": "Duyệt DSpace",
+
+  // DSpace default: "DSpace Angular :: "
+  "repository.title.prefix": "Kho Dữ liệu VinUniversity :: ",
+
+  // Home news section
+  "home.news.subtitle": "Kho Dữ liệu Nội sinh",
+  "home.news.lead": "Kho Dữ liệu Nội sinh VinUniversity (VinUni IR) là nền tảng trung tâm của trường đại học để thu thập, lưu trữ và cung cấp truy cập mở đến toàn bộ các sản phẩm nghiên cứu và học thuật của giảng viên, nhà nghiên cứu và sinh viên VinUniversity.",
+  "home.news.description": "Hệ thống hỗ trợ khám phá và chia sẻ tri thức liên ngành một cách liền mạch, đảm bảo nghiên cứu của VinUniversity đạt được khả năng hiển thị và tầm ảnh hưởng tối đa ở cả cấp quốc gia và quốc tế.",
+  "home.news.features.head": "Tính năng nổi bật:",
+  "home.news.features.item1": "Duyệt và tìm kiếm tài liệu theo tác giả, đơn vị, lĩnh vực nghiên cứu hoặc nguồn tài trợ",
+  "home.news.features.item2": "Truy cập mở đến luận văn, bài báo khoa học, bài hội thảo, bộ dữ liệu nghiên cứu và nhiều hơn nữa",
+  "home.news.features.item3": "Quản lý hồ sơ nhà nghiên cứu tích hợp ORCID để đảm bảo tính chính xác về tác giả",
+  "home.news.features.item4": "Thống kê sử dụng toàn diện và chỉ số trích dẫn để theo dõi tầm ảnh hưởng của nghiên cứu",
+  "home.news.features.item5": "Tuân thủ các chuẩn quốc tế (OpenAIRE, Dublin Core) để tăng khả năng tương tác toàn cầu",
+  "home.news.cta": "Khám phá các cộng đồng nghiên cứu của VinUniversity và tìm hiểu các đóng góp học thuật của chúng tôi.",
+}

@@ -1,0 +1,19 @@
+{
+  // DSpace default: "All of DSpace"
+  "menu.section.browse_global": "Browse DSpace",
+
+  // DSpace default: "DSpace Angular :: "
+  "repository.title.prefix": "VinUniversity Research Repository :: ",
+
+  // Home news section
+  "home.news.subtitle": "Institutional Research Repository",
+  "home.news.lead": "VinUniversity Institutional Repository (VinUni IR) is the university's central platform for collecting, preserving, and providing open access to research and scholarly outputs produced by VinUniversity's faculty, researchers, and students.",
+  "home.news.description": "The system supports seamless discovery and sharing of knowledge across disciplines, ensuring VinUniversity's research achieves maximum visibility and impact both nationally and internationally.",
+  "home.news.features.head": "Key features:",
+  "home.news.features.item1": "Browse and search research outputs by author, department, research area, or funding source",
+  "home.news.features.item2": "Open access to theses, dissertations, journal articles, conference papers, datasets, and more",
+  "home.news.features.item3": "Researcher profile management with ORCID integration for accurate attribution",
+  "home.news.features.item4": "Comprehensive usage statistics and citation metrics for tracking research impact",
+  "home.news.features.item5": "Aligned with international standards (OpenAIRE, Dublin Core) for global interoperability",
+  "home.news.cta": "Explore VinUniversity's research communities and discover our scholarly contributions.",
+}

@@ -1,0 +1,149 @@
+# ============================================================
+# DSpace-CRIS Frontend Pipeline
+# Repo: dspace-angular
+# ============================================================
+# TRƯỚC KHI CHẠY — cấu hình trong Azure DevOps:
+#
+#   Variable Group "dspace-frontend-vars" (Library → Variable groups):
+#     - acrName                 : vd: mycompanyacr.azurecr.io
+#     - acrServiceConnection    : tên Service Connection tới ACR
+#     - aksDevServiceConnection : tên Service Connection tới AKS dev
+#     - aksProdServiceConnection: tên Service Connection tới AKS prod
+#
+#   Environments (Pipelines → Environments):
+#     - development : không cần approval
+#     - production  : bật manual approval gate
+# ============================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - '**/*.md'
+      - 'node_modules/**'
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - 'node_modules/**'
+
+variables:
+  - group: dspace-frontend-vars
+  - name: DSPACE_VERSION
+    value: 'dspace-cris-2024_02_x'
+  - name: FRONTEND_IMAGE
+    value: 'dspace-frontend'
+  - name: IMAGE_TAG
+    value: '$(Build.BuildId)'
+
+# ============================================================
+# STAGE 1: BUILD & PUSH
+# ============================================================
+stages:
+  - stage: Build
+    displayName: 'Build & Push'
+    jobs:
+      - job: BuildFrontend
+        displayName: 'Docker Build (Dockerfile.dist) + Push'
+        pool:
+          vmImage: 'ubuntu-latest'
+          # Lưu ý: Angular build cần nhiều RAM.
+          # Nếu build fail do OOM, cân nhắc dùng self-hosted agent >= 8GB RAM
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          # Dockerfile.dist tự chạy yarn build:prod + yarn build:mirador bên trong Docker.
+          # Base image 4science/dspace-cris-angular-dependencies đã có sẵn node_modules,
+          # nên không cần chạy yarn install trên agent.
+          - task: Docker@2
+            displayName: 'Docker build'
+            inputs:
+              command: build
+              containerRegistry: '$(acrServiceConnection)'
+              repository: '$(FRONTEND_IMAGE)'
+              dockerfile: 'Dockerfile.dist'
+              buildContext: '.'
+              arguments: '--build-arg DSPACE_VERSION=$(DSPACE_VERSION)'
+              tags: |
+                $(IMAGE_TAG)
+                latest
+
+          - task: Docker@2
+            displayName: 'Docker push'
+            inputs:
+              command: push
+              containerRegistry: '$(acrServiceConnection)'
+              repository: '$(FRONTEND_IMAGE)'
+              tags: |
+                $(IMAGE_TAG)
+                latest
+
+  # ============================================================
+  # STAGE 2: DEPLOY TO DEVELOPMENT  (nhánh develop)
+  # ============================================================
+  - stage: DeployDev
+    displayName: 'Deploy → Development'
+    dependsOn: Build
+    condition: >
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+      )
+    jobs:
+      - deployment: DeployDev
+        displayName: 'Deploy to Dev (AKS)'
+        environment: 'development'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@1
+                  displayName: 'Deploy → dspace-dev'
+                  inputs:
+                    action: deploy
+                    connectionType: 'kubernetesServiceConnection'
+                    kubernetesServiceConnection: '$(aksDevServiceConnection)'
+                    namespace: 'dspace-dev'
+                    manifests: 'k8s/dev/frontend.yaml'
+                    containers: '$(acrName)/$(FRONTEND_IMAGE):$(IMAGE_TAG)'
+
+  # ============================================================
+  # STAGE 3: DEPLOY TO PRODUCTION  (nhánh main)
+  # ============================================================
+  - stage: DeployProd
+    displayName: 'Deploy → Production'
+    dependsOn: Build
+    condition: >
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+    jobs:
+      - deployment: DeployProd
+        displayName: 'Deploy to Prod (AKS)'
+        environment: 'production'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@1
+                  displayName: 'Deploy → dspace-prod'
+                  inputs:
+                    action: deploy
+                    connectionType: 'kubernetesServiceConnection'
+                    kubernetesServiceConnection: '$(aksProdServiceConnection)'
+                    namespace: 'dspace-prod'
+                    manifests: 'k8s/prod/frontend.yaml'
+                    containers: '$(acrName)/$(FRONTEND_IMAGE):$(IMAGE_TAG)'
