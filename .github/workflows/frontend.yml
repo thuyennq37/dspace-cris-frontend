@@ -1,0 +1,133 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/dspace-frontend
+  RESOURCE_GROUP: dspace-personal-rg
+  CONTAINER_ENV: dspace-env
+
+jobs:
+  # ─── BUILD & PUSH IMAGE ──────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.dist
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── DEPLOY DEV (nhánh develop) ──────────────────────────────
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: development
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Frontend → dev
+        run: |
+          az containerapp create \
+            --name dspace-frontend-dev \
+            --resource-group $RESOURCE_GROUP \
+            --environment $CONTAINER_ENV \
+            --image $IMAGE:${{ needs.build.outputs.image-tag }} \
+            --registry-server ghcr.io \
+            --registry-username ${{ github.actor }} \
+            --registry-password ${{ secrets.GITHUB_TOKEN }} \
+            --min-replicas 0 --max-replicas 1 \
+            --ingress external --target-port 4000 \
+            --cpu 0.5 --memory 1Gi \
+            --env-vars \
+              "DSPACE_UI_SSL=false" \
+              "DSPACE_UI_HOST=0.0.0.0" \
+              "DSPACE_UI_PORT=4000" \
+              "DSPACE_REST_SSL=false" \
+              "DSPACE_REST_HOST=dspace-backend-dev.<YOUR_CONTAINER_ENV_DOMAIN>" \
+              "DSPACE_REST_PORT=443" \
+              "DSPACE_REST_NAMESPACE=/server" \
+          2>/dev/null || \
+          az containerapp update \
+            --name dspace-frontend-dev \
+            --resource-group $RESOURCE_GROUP \
+            --image $IMAGE:${{ needs.build.outputs.image-tag }}
+
+      - name: Print URL
+        run: |
+          echo "Frontend URL:"
+          az containerapp show \
+            --name dspace-frontend-dev \
+            --resource-group $RESOURCE_GROUP \
+            --query "properties.configuration.ingress.fqdn" -o tsv
+
+  # ─── DEPLOY PRODUCTION (nhánh main) ──────────────────────────
+  deploy-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Frontend → prod
+        run: |
+          az containerapp create \
+            --name dspace-frontend-prod \
+            --resource-group $RESOURCE_GROUP \
+            --environment $CONTAINER_ENV \
+            --image $IMAGE:${{ needs.build.outputs.image-tag }} \
+            --registry-server ghcr.io \
+            --registry-username ${{ github.actor }} \
+            --registry-password ${{ secrets.GITHUB_TOKEN }} \
+            --min-replicas 0 --max-replicas 1 \
+            --ingress external --target-port 4000 \
+            --cpu 0.5 --memory 1Gi \
+            --env-vars \
+              "DSPACE_UI_SSL=false" \
+              "DSPACE_UI_HOST=0.0.0.0" \
+              "DSPACE_UI_PORT=4000" \
+              "DSPACE_REST_SSL=true" \
+              "DSPACE_REST_HOST=dspace-backend-prod.<YOUR_CONTAINER_ENV_DOMAIN>" \
+              "DSPACE_REST_PORT=443" \
+              "DSPACE_REST_NAMESPACE=/server" \
+          2>/dev/null || \
+          az containerapp update \
+            --name dspace-frontend-prod \
+            --resource-group $RESOURCE_GROUP \
+            --image $IMAGE:${{ needs.build.outputs.image-tag }}
